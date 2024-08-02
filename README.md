@@ -1,7 +1,7 @@
 # LoRaMesh-CHAT
 Sistema de mensajería para redes comunitarias en situaciones de emergencia 
 
-# Configuración de LoRaMesher con PlatformIO y Visual Studio Code
+# Configuración de LoRaMesh-CHAT con PlatformIO y Visual Studio Code
 1. Descargue Visual Studio Code.
 2. Descargue PlatformIO dentro de Visual Studio Code.
 3. Clona el repositorio o descaguelo.
