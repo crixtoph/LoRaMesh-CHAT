@@ -11,9 +11,9 @@ Sistema de mensajería para redes comunitarias en situaciones de emergencia
 
 # data
 En esta carpeta se encuentra el código implementado para la aplicación de la interfaz de chat web. 
-Dentro de esta carpeta se colocan los archivos HTML, CSS, JS, etc. que deseas cargar en la tarjeta de desarrollo.
+Dentro de esta carpeta se colocan los archivos HTML, CSS, JS, etc. que se desea cargar en la tarjeta de desarrollo.
 
-Al momento de cargar cargar el código a un microcontrolador es importante ejecuta el siguiente comando para subir los archivos al sistema de archivos SPIFFS del ESP32:
+Al momento de cargar el código a un microcontrolador es importante ejecuta el siguiente comando para subir los archivos al sistema de archivos SPIFFS del ESP32:
 
 pio run --target uploadfs
 
