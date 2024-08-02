@@ -20,7 +20,7 @@ pio run --target uploadfs
 Este comando empaquetará todos los archivos en la carpeta data y los cargará en la memoria flash del ESP32 usando SPIFFS.
 
 Otra opción es utilizando la interfaz de Platformio. Dentro de las tareas del proyecto en platformio (PROYECT TASKS) en el apartado de Platform hacer clic en (Build Filesystem Image) para crear la imagen del sistema de archivos y luego hacer clic en (Upload Filesystem Image) para cargar la imagen del sistema de archivos. Esto cargará los códigos que se encuentran dentro de la carpeta data al SPIFFS del microcontrolador.
-
+[![Imageneee1.png](https://i.postimg.cc/28NKkTWP/Imageneee1.png)](https://postimg.cc/BtNgNTMg)
 
 # main
 
