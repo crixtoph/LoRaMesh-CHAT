@@ -9,7 +9,7 @@ Sistema de mensajería para redes comunitarias en situaciones de emergencia
 5. Compile el proyecto con PlatformIO.
 6. Cargue el proyecto en el microcontrolador LoRa especificado. En nuestro caso, utilizamos el módulo TTGOLoRa32 v2.
 
-#data
+# data
 En esta carpeta se encuentra el código implementado para la aplicación de la interfaz de chat web. 
 Dentro de esta carpeta se colocan los archivos HTML, CSS, JS, etc. que deseas cargar en la tarjeta de desarrollo.
 
@@ -20,3 +20,8 @@ pio run --target uploadfs
 Este comando empaquetará todos los archivos en la carpeta data y los cargará en la memoria flash del ESP32 usando SPIFFS.
 
 Otra opción es utilizando la interfaz de Platformio. Dentro de las tareas del proyecto en platformio (PROYECT TASKS) en el apartado de Platform hacer clic en (Build Filesystem Image) para crear la imagen del sistema de archivos y luego hacer clic en (Upload Filesystem Image) para cargar la imagen del sistema de archivos. Esto cargara los codigos que se encuentran dentro de la carpeta data al SPIFFS del microcontrolador.
+
+
+# main
+
+En esta carpeta se encuentra el firmware utilizado para establecer las diferentes comunicaciones en el sistema.
