@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CRISIS CHAT</title>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+        h1{
+            text-align: center;
+            color: #333;
+        }
+        .tab {
+            overflow: hidden;
+            border-bottom: 1px solid #ccc;
+            background-color: #e9ecef;
+            border-radius: 10px 10px 0 0;
+        }
+        .tab button {
+            background-color: inherit;
+            float: left;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 14px 16px;
+            transition: 0.3s;
+            font-size: 16px;
+            color: #007bff;
+        }
+        .tab button:hover {
+            background-color: #e2e6ea;
+        }
+        .tab button.active {
+            background-color: #ffffff;
+            color: #0056b3;
+            border-bottom: 2px solid #007bff;
+        }
+        .tab button.new-message {
+            background-color: #28a745;
+            color: #ffffff;
+        }
+        .tabcontent {
+            display: none;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            background-color: #ffffff;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        .form-group input, .form-group textarea {
+            padding: 1px;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .form-group button {
+            padding: 10px;
+            width: 100%;
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #logGeneral, .log {
+            box-sizing: border-box;
+            background-color: #ffffff;
+            padding: 5px;
+            border: 2px solid #ced4da;
+            height: 530px;
+            overflow-y: scroll;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+        }
+        .channel-btn {
+            margin-top: 10px;
+            display: inline-flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .channel-info-container p {
+            margin: 0;
+        }
+        .chat-title {
+            margin-top: 0;
+        }
+        #gpsLog {
+            box-sizing: border-box;
+            background-color: #ffffff;
+            padding: 10px;
+            border: 2px solid #ced4da;
+            height: 45px;
+            overflow-y: auto;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        #clearMessages {
+            color:  #ccc;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            padding: 12px;
+            margin-left: 0px;
+        }
+        .sent-message {
+            margin: 0;
+        }
+    </style>
+    <script>
+        var ws;
+        var userName;
+        var channels = {};
+        var userId;
+        var assignedNodeId;
+
+        function checkNodeId() {
+            let nodeId;
+            do {
+                nodeId = prompt("Ingrese el ID del usuario:");
+                if (parseInt(nodeId) !== assignedNodeId) {
+                    alert("ID de usuario no válido. Por favor, inténtelo de nuevo.");
+                }
+            } while (parseInt(nodeId) !== assignedNodeId);
+            return nodeId;
+        }
+
+        function checkUserName() {
+            let storedUserName = localStorage.getItem('userName');
+            if (storedUserName) {
+                let changeUserName = confirm("Nombre de usuario actual: " + storedUserName + "\n¿Desea cambiar el nombre de usuario?");
+                if (changeUserName) {
+                    userName = prompt("Ingrese un nuevo nombre de usuario:");
+                    if (!userName) {
+                        userName = "Usuario Anónimo";
+                    }
+                    localStorage.setItem('userName', userName);
+                } else {
+                    userName = storedUserName;
+                }
+            } else {
+                userName = prompt("Ingrese un nombre de usuario:");
+                if (!userName) {
+                    userName = "Usuario Anónimo";
+                }
+                localStorage.setItem('userName', userName);
+            }
+        }
+        // Inicializar la conexión WebSocket/Rx
+        function init() {
+            ws = new WebSocket('ws://' + window.location.hostname + '/ws');
+            ws.onmessage = function(event) {// Escuchar mensajes del servidor
+                var messageData = JSON.parse(event.data);// Analizar el mensaje JSON
+                if (messageData.type === 'nodeId') {// Si el msj es un msj de ID de nodo asignado
+                    assignedNodeId = messageData.nodeId;// Asignar el ID de nodo asignado
+                    userId = checkNodeId();// Verificar el ID de usuario
+                    checkUserName();// Verificar el nombre de usuario
+                    loadChannels();// Cargar los canales
+                } else if (messageData.type === 'community_broadcast') {// Si el msj es un msj de difusión comunitaria
+                    var log = document.getElementById('logGeneral');// Obtener el contenedor de mensajes
+                    log.innerHTML += `<div class="sent-message">${messageData.message}</div>`;// Agregar el msj al contenedor
+                    log.scrollTop = log.scrollHeight;// Desplazar el contenedor al final
+                    saveMessage('General', messageData.message);// Guardar el msj en el almacenamiento local
+                    highlightTab('General');// Resaltar la pestaña de chat comunitario
+                } else if (messageData.type === 'unicast') {// Si el msj es un msj unicast
+                    var channelId = messageData.channelId;// Obtener el ID del canal
+                    var log = document.getElementById('logContact_' + channelId);// Obtener el contenedor de msj del canal
+                    if (log) {// Si el contenedor existe
+                        log.innerHTML += `<div class="sent-message">${messageData.message}</div>`;// Agregar el msj al contenedor
+                        log.scrollTop = log.scrollHeight;// Desplazar el contenedor al final
+                        saveMessage('Contact_' + channelId, messageData.message);// Guardar el msj en el almacenamiento local
+                        highlightTab('Contactos');// Resaltar la pestaña de chat privado
+                    }
+                }
+            }
+        }
+
+        function highlightTab(tabName) {// Resaltar la pestaña del chat
+            var tabButton = document.querySelector(`.tab button[onclick="openTab(event, '${tabName}')"]`);// Obtener el botón de la pestaña
+            if (!tabButton.classList.contains('active')) {// Si la pestaña no está activa
+                tabButton.classList.add('new-message');// Agregar la clase de nuevo mensaje
+            }
+        }
+        // Enviar mensajes al servidor
+        function sendMessage(type, channelId) {
+            var message;// Declarar la variable de mensaje
+            var log;// Declarar el contenedor de mensajes
+            if (type === 'unicast') {// Si el tipo de msj es unicast
+                message = document.getElementById('messageContacto_' + channelId).value;// Obtener el msj del canal
+                if (!message.trim()) {// Si el msj está vacío
+                    return;// Salir de la función
+                }
+                var nodeId1 = channels[channelId].contactId;// Obtener el ID del contacto
+                ws.send(JSON.stringify({ type: 'unicast', message: message, userName: userName, nodeId: nodeId1, channelId: channelId, dst: nodeId1 }));// Enviar el msj al servidor
+                log = document.getElementById('logContact_' + channelId);// Obtener el contenedor de msj del canal
+                log.innerHTML += `<div class="sent-message">(ID_${userId}) <b> ${userName}: </b> ${message}</div>`;// Agregar el msj al contenedor
+                saveMessage('Contact_' + channelId, `<div class="sent-message">(ID_${userId}) <b> ${userName}: </b> ${message}</div>`);// Guardar el msj en el almacenamiento local
+            } else if (type === 'broadcast') {// Si el tipo de msj es de difusión
+                message = document.getElementById('message').value;// Obtener el msj del chat comunitario
+                if (!message.trim()) {// Si el msj está vacío
+                    return;// Salir de la función
+                }
+                ws.send(JSON.stringify({ type: 'broadcast', message: message, userName: userName, channelId: 0, dst: 0xFFFF }));// Enviar el msj al servidor
+                log = document.getElementById('logGeneral');// Obtener el contenedor de mensajes
+                log.innerHTML += `<div class="sent-message">(ID_${userId})<b> ${userName}: </b>${message}</div>`;// Agregar el msj al contenedor
+                saveMessage('General', `<div class="sent-message">(ID_${userId})<b> ${userName}: </b>${message}</div>`);// Guardar el msj en el almacenamiento local
+            }
+            log.scrollTop = log.scrollHeight;// Desplazar el contenedor al final
+            if (type === 'unicast') {// Si el tipo de msj es unicast
+                document.getElementById('messageContacto_' + channelId).value = '';// Limpiar el campo de msj del canal
+            } else {// Si el tipo de msj es de difusión
+                document.getElementById('message').value = '';// Limpiar el campo de msj del chat comunitario
+            }
+        }
+
+        function saveMessage(chatName, message) {
+            let messages = JSON.parse(localStorage.getItem('messages')) || {};
+            if (!messages[chatName]) {
+                messages[chatName] = [];
+            }
+            messages[chatName].push(message);
+            localStorage.setItem('messages', JSON.stringify(messages));
+        }
+
+        function loadMessages() {
+            let messages = JSON.parse(localStorage.getItem('messages')) || {};
+            for (let chatName in messages) {
+                let log = document.getElementById('log' + chatName);
+                if (log) {
+                    log.innerHTML = messages[chatName].map(msg => `<div class="sent-message">${msg}</div>`).join('');
+                    log.scrollTop = log.scrollHeight;
+                }
+            }
+        }
+
+        function clearMessages() {
+            if (confirm("¿Está seguro de que desea eliminar todos los mensajes almacenados?")) {
+                localStorage.removeItem('messages');
+                location.reload();
+            }
+        }
+
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablinks");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+                tablinks[i].classList.remove('new-message');
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+
+        function addChannel() {
+            var channelId;
+            while (true) {
+                channelId = prompt("Ingrese el número del canal:");
+                if (channelId === null) {
+                    return;
+                }
+                if (channelId && !isNaN(channelId) && !channels[channelId]) {
+                    break;
+                }
+                alert("Número de canal ya registrado o no es válido. Por favor, ingrese otro número.");
+            }
+            createChannel(channelId);
+        }
+
+        function createChannel(channelId = null) {
+            if (!channelId) {
+                channelId = Math.floor(1000 + Math.random() * 9000).toString();
+            }
+            var contactId;
+            while (true) {
+                contactId = prompt("Ingrese el ID del contacto:");
+                if (contactId === null) {
+                    return;
+                }
+                if (contactId && !isNaN(contactId)) {
+                    break;
+                }
+                alert("ID del contacto no válido. Por favor, ingrese otro ID.");
+            }
+            var chatName = prompt("Ingrese el nombre del chat:");
+            if (chatName === null) {
+                return;
+            }
+            if (chatName.trim() === "") {
+                chatName = "Chat sin Nombre";
+            }
+            if (contactId) {
+                channels[channelId] = { contactId: contactId, chatName: chatName };
+                var channelButton = document.createElement('div');
+                channelButton.className = 'channel-btn';
+                channelButton.id = 'channelBtn_' + channelId;
+                channelButton.innerHTML = `<button onclick="openChannel(${channelId})">CANAL ${channelId}</button>`;
+                document.getElementById('contactButtons').appendChild(channelButton);
+                saveChannels();
+            }
+        }
+
+        function openChannel(channelId) {
+            var channelDiv = document.getElementById('channel_' + channelId);
+            if (!channelDiv) {
+                channelDiv = document.createElement('div');
+                channelDiv.id = 'channel_' + channelId;
+                channelDiv.innerHTML = `
+                <h3>Chat Privado - Canal ${channelId}</h3>
+                <div class="channel-info-container">
+                    <p>🔘<strong>ID de usuario a contactar:</strong> ${channels[channelId].contactId}</p>
+                    <p>🔘<strong>Nombre del chat:</strong> ${channels[channelId].chatName}</p>
+                </div>
+                <div style="display: flex; flex-direction: column; height: 80vh;">
+                    <div id="logContact_${channelId}" class="log" style="background-color: #ffffff; padding: 10px; border: 2px solid #ced4da; flex-grow: 1; overflow-y: scroll; border-radius: 5px;"></div>
+                    <div class="form-group" style="display: flex; align-items: center; margin-top: 10px;">
+                        <textarea id="messageContacto_${channelId}" placeholder="Escribe el mensaje a enviar..." style="flex-grow: 1; margin-right: 5px;"></textarea>
+                        <button onclick="sendMessage('unicast', ${channelId})" style="width: 100px; padding: 10px 0px; font-size: 0.9em;">Enviar</button>
+                    </div>
+                    <div class="form-group">
+                        <button onclick="deleteChannel(${channelId})" style="background-color: #dc3545; color: #ffffff;">Eliminar Canal</button>
+                    </div>
+                </div>
+                `;
+                document.getElementById('contactTab').appendChild(channelDiv);
+                // Llamar a loadMessages después de que el elemento del canal se haya creado
+                loadMessages();
+            }
+            for (var key in channels) {
+                var elem = document.getElementById('channel_' + key);
+                if (elem) elem.style.display = 'none';
+            }
+            channelDiv.style.display = 'block';
+        }
+
+        function deleteChannel(channelId) {
+            if (confirm("¿Está seguro de que desea eliminar este canal?")) {
+                delete channels[channelId];
+                var channelButton = document.getElementById('channelBtn_' + channelId);
+                if (channelButton) {
+                    channelButton.remove();
+                }
+                var channelDiv = document.getElementById('channel_' + channelId);
+                if (channelDiv) {
+                    channelDiv.remove();
+                }
+                saveChannels();
+            }
+        }
+
+        function saveChannels() {
+            localStorage.setItem('channels', JSON.stringify(channels));
+        }
+
+        function loadChannels() {
+            var savedChannels = localStorage.getItem('channels');
+            if (savedChannels) {
+                channels = JSON.parse(savedChannels);
+                for (var channelId in channels) {
+                    if (!document.getElementById('channelBtn_' + channelId)) {
+                        var channelButton = document.createElement('div');
+                        channelButton.className = 'channel-btn';
+                        channelButton.id = 'channelBtn_' + channelId;
+                        channelButton.innerHTML = `<button onclick="openChannel(${channelId})">CANAL ${channelId}</button>`;
+                        document.getElementById('contactButtons').appendChild(channelButton);
+                    }
+                }
+            }
+        }
+
+        function getGPSData() {
+            fetch('/getGPS')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('gpsLog').innerHTML = `Latitud: ${data.latitude}, Longitud: ${data.longitude}`;
+                })
+                .catch(error => {
+                    document.getElementById('gpsLog').innerHTML = 'Error al obtener coordenadas GPS';
+                    console.error('Error al obtener coordenadas GPS:', error);
+                });
+        }
+
+        window.onload = function() {
+            init();
+            loadChannels();
+            document.getElementById("defaultOpen").click();
+            loadMessages();
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>LoRaMesh-CHAT</h1>
+        <div class="tab">
+            <button class="tablinks" onclick="openTab(event, 'General')" id="defaultOpen">Canal General</button>
+            <button class="tablinks" onclick="openTab(event, 'Contactos')">Canal Privado</button>
+            <button class="tablinks" onclick="openTab(event, 'GPS')">GPS</button>
+            <button id="clearMessages" onclick="clearMessages()">🗑️</button>
+        </div>
+
+        <div id="General" class="tabcontent" style="display: flex; flex-direction: column; height: 80vh;">
+            <h3 class="chat-title">Chat Comunitario</h3>
+            <div id="logGeneral" class="log" style="background-color: #ffffff; padding: 5px; border: 2px solid #ced4da; flex-grow: 1; overflow-y: scroll; border-radius: 5px;"></div>
+            <div class="form-group" style="display: flex; align-items: center; margin-top: 10px;">
+                <textarea id="message" placeholder="Escribe el mensaje a enviar..." style="flex-grow: 1; margin-right: 5px;"></textarea>
+                <button onclick="sendMessage('broadcast')" style="width: 100px; padding: 10px 0px; font-size: 0.9em;">Enviar</button>
+            </div>
+        </div>
+
+        <div id="Contactos" class="tabcontent">
+            <button onclick="createChannel()">+ Crear un Canal</button>
+            <button onclick="addChannel()">Unirme a un canal</button>
+            <div id="contactButtons" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+            <div id="contactTab"></div>
+        </div>
+
+        <div id="GPS" class="tabcontent">
+            <h3 class="chat-title">GPS</h3>
+            <div id="gpsLog"></div>
+            <button onclick="getGPSData()">Obtener Coordenadas GPS</button>
+        </div>
+    </div>
+</body>
+</html>
